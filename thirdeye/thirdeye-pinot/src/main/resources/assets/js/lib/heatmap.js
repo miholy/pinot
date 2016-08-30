@@ -283,7 +283,9 @@ function renderD3heatmap(heatMapData, summaryData, tab) {
         $(".difference-summary").each(function(){
             var metricName = $(this).attr("data-metric");
             console.log("#heat-map-" + metric +"-difference-summary-table")
-            $("#heat-map-" + metric +"-difference-summary-table").DataTable();
+            $("#heat-map-" + metric +"-difference-summary-table").DataTable({
+              "bSort" : false
+            });
         })
 
     }
