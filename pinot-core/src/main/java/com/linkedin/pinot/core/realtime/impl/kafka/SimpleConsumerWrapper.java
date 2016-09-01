@@ -286,7 +286,8 @@ public class SimpleConsumerWrapper implements Closeable {
       // Connect to the partition leader
       try {
         _simpleConsumer =
-            new SimpleConsumer(_leader.host(), _leader.port(), SOCKET_TIMEOUT_MILLIS, SOCKET_BUFFER_SIZE, _clientId);
+            _simpleConsumerFactory.buildSimpleConsumer(_leader.host(), _leader.port(), SOCKET_TIMEOUT_MILLIS,
+                SOCKET_BUFFER_SIZE, _clientId);
 
         setCurrentState(new ConnectedToPartitionLeader());
       } catch (Exception e) {
