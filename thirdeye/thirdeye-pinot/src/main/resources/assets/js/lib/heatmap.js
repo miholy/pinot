@@ -1,14 +1,16 @@
 function getHeatmap(tab) {
 
+
     //Todo: add the real endpoint
-    var url = "/dashboard/data/heatmap?" + window.location.hash.substring(1);
-    getData(url, tab).done(function (heatMapData) {
+    var heatMapUrl = "/dashboard/data/heatmap?" + window.location.hash.substring(1);
+    getData(heatMapUrl, tab).done(function (heatMapData) {
 
+        renderD3heatmap(heatMapData, tab);
+        heatMapEventListeners(tab);
+        hideLoader(tab);
 
-        //AJAX
-        var url = "/dashboard/summary/autoDimensionOrder?" +
+        var summaryUrl = "/dashboard/summary/autoDimensionOrder?" +
             "dataset=" + hash.dataset +
-            "&metric=" + hash.metrics +
             "&baselineStart=" + hash.baselineStart +
             "&baselineEnd=" + hash.baselineEnd +
             "&currentStart=" + hash.currentStart +
@@ -18,21 +20,25 @@ function getHeatmap(tab) {
             "&oneSideError=true" +
             "&summarySize=10" +
             "&hierarchies=[[\"browser_name\", \"browser_version\"],[\"continent\",\"countryCode\"]]"
+        var metrics = hash.metrics.split(",")
+        for (var index = 0, len = metrics.length; index < len; index++) {
+            getSummaryData(summaryUrl, tab)
+        }
 
-        getData(url).done(function(summaryData){
+        function getSummaryData(summaryUrl, tab){
 
-            console.log("summaryData")
-            console.log(summaryData)
+            summaryUrl += "&metric=" + metrics[index];
+            getDataCustomCallback(summaryUrl, tab).done(function (data) {
 
-            renderD3heatmap(heatMapData, summaryData, tab);
-
-            heatMapEventListeners(tab);
-        })
+                var summaryData = data;
+                renderHeatMapSummary(summaryData);
+            })
+        }
 
     });
 };
 
-function renderD3heatmap(heatMapData, summaryData, tab) {
+function renderD3heatmap(heatMapData, tab) {
     var data = heatMapData;
     //Error handling when data is falsy (empty, undefined or null)
     if (!data) {
@@ -49,8 +55,8 @@ function renderD3heatmap(heatMapData, summaryData, tab) {
     //var summaryData = {"dimensions":["continent","countryCode","pageKey"],"responseRows":[{"names":["(ALL)-","(ALL)","(ALL)"],"baselineValue":290076771,"currentValue":290989633,"ratio":1.0031469669110458},{"names":["unknown","(ALL)-","(ALL)"],"baselineValue":49637728,"currentValue":42080059,"ratio":0.8477434543337681},{"names":["unknown","other","p_flagship3_feed_updates"],"baselineValue":12438174,"currentValue":8903781,"ratio":0.7158430972263292},{"names":["Oceania","au","(ALL)"],"baselineValue":17854104,"currentValue":15000436,"ratio":0.8401673923261564},{"names":["North America","us","(ALL)-"],"baselineValue":120970350,"currentValue":105194842,"ratio":0.8695919454643225},{"names":["North America","us","p_flagship3_people_pymk"],"baselineValue":11642301,"currentValue":8071474,"ratio":0.693288551807757},{"names":["North America","us","p_flagship3_feed_updates"],"baselineValue":24534044,"currentValue":17338875,"ratio":0.7067271502407023},{"names":["North America","ca","(ALL)"],"baselineValue":21769165,"currentValue":18074492,"ratio":0.8302795261095224},{"names":["Latin America","br","(ALL)"],"baselineValue":22534261,"currentValue":17793288,"ratio":0.7896104513922156},{"names":["Europe","fr","(ALL)"],"baselineValue":20051472,"currentValue":16703293,"ratio":0.8330207877007733}]};
 
     /* Handelbars template for treemap table */
-    var combinedData = {heatMapData : heatMapData, summaryData : summaryData}
-    var result_treemap_template = HandleBarsTemplates.template_treemap(combinedData)
+    var templateData = {heatMapData : heatMapData}
+    var result_treemap_template = HandleBarsTemplates.template_treemap(templateData)
     $("#" + tab + "-display-chart-section").html(result_treemap_template);
 
     //var invertColorMetrics
@@ -58,7 +64,7 @@ function renderD3heatmap(heatMapData, summaryData, tab) {
     var baseForGtZero = 'rgba(0,0,255,'; //gt zero is default blue
     var invertColorMetrics = window.datasetConfig.invertColorMetrics;
 
-    var numMetrics = data["metrics"].length
+    var numMetrics = data["metrics"].length;
     for (var m = 0; m < numMetrics; m++) {
         var metric = data["metrics"][m];
 
@@ -278,17 +284,27 @@ function renderD3heatmap(heatMapData, summaryData, tab) {
 
         }
 
-
-        //Create dataTable instance of summary table
-        $(".difference-summary").each(function(){
-            var metricName = $(this).attr("data-metric");
-            console.log("#heat-map-" + metric +"-difference-summary-table")
-            $("#heat-map-" + metric +"-difference-summary-table").DataTable({
-              "bSort" : false
-            });
-        })
-
     }
+}
+
+function renderHeatMapSummary(summaryData){
+
+    if (summaryData.responseRows == 0) {
+
+        var warning = $('<div></div>', { class: 'uk-alert uk-alert-warning' })
+        warning.append($('<p></p>', { html: 'There is no data available for this request.'  }))
+        $("#difference-summary" + summaryData.metricName).html(warning)
+        return
+    }
+
+    var data = {summaryData : summaryData}
+    var result_treemap_summary_template = HandleBarsTemplates.template_treemap_summary(data)
+    $("#difference-summary-" + summaryData.metricName).html(result_treemap_summary_template);
+
+    //Create dataTable instance of summary table
+    $("#heat-map-" + summaryData.metricName +"-difference-summary-table").DataTable({
+        "bSort" : false
+    });
 }
 
 function heatMapEventListeners(tab) {

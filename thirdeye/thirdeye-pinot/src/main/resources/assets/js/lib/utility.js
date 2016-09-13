@@ -39,7 +39,8 @@ function getData(url, tab) {
     })
 }
 
-
+//ajax GET request whit custom callback function
+// getData function clears the chart section use this is for usecases where chart section doesn't have to be cleared when the response arrives
 function getDataCustomCallback(url, tab, callback) {
     console.log("request url:", url)
 
@@ -68,11 +69,12 @@ function getDataCustomCallback(url, tab, callback) {
                 $("#" + tab + "-chart-area-error").append(error);
                 $("#" + tab + "-chart-area-error").fadeIn(100);
                 return
-            },
-            beforeSend: showLoader(tab)
+            }
+            //,
+            //beforeSend: showLoader(tab)
         }
     }).always(function () {
-        hideLoader(tab);
+
     });
 };
 
