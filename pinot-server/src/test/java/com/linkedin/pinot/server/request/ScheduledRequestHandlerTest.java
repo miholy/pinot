@@ -31,19 +31,24 @@ import com.yammer.metrics.core.MetricsRegistry;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
+import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.thrift.protocol.TCompactProtocol;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class ScheduledRequestHandlerTest {
@@ -57,7 +62,16 @@ public class ScheduledRequestHandlerTest {
   @BeforeTest
   public void setupTestMethod() {
     serverMetrics = new ServerMetrics(new MetricsRegistry());
-    channelHandlerContext = mock(ChannelHandlerContext.class);
+    channelHandlerContext = mock(ChannelHandlerContext.class, RETURNS_DEEP_STUBS);
+    when(channelHandlerContext.channel().remoteAddress())
+        .thenAnswer(new Answer<InetSocketAddress>() {
+          @Override
+          public InetSocketAddress answer(InvocationOnMock invocationOnMock)
+              throws Throwable {
+            return new InetSocketAddress("localhost", 60000);
+          }
+        });
+
     queryScheduler = mock(QueryScheduler.class);
   }
 

@@ -135,15 +135,17 @@ public class ScheduledRequestHandler implements NettyServer.RequestHandler {
     return serializedQueryResponse;
   }
 
-  static byte[] serializeDataTable(InstanceRequest instanceRequest,
+  static byte[] serializeDataTable(@Nullable InstanceRequest instanceRequest,
       ServerMetrics metrics,
       DataTable instanceResponse, long queryStartTime) {
     byte[] responseByte;
     long serializationStartTime = System.nanoTime();
+    long requestId = instanceRequest != null ? instanceRequest.getRequestId() : -1;
+    String brokerId = instanceRequest != null ? instanceRequest.getBrokerId() : "null";
+
     try {
       if (instanceResponse == null) {
-        LOGGER.warn("Instance response is null for requestId: {}, brokerId: {}",
-            instanceRequest.getRequestId(), instanceRequest.getBrokerId());
+        LOGGER.warn("Instance response is null for requestId: {}, brokerId: {}", requestId, brokerId);
         responseByte = new byte[0];
       } else {
         responseByte = instanceResponse.toBytes();
@@ -151,13 +153,15 @@ public class ScheduledRequestHandler implements NettyServer.RequestHandler {
     } catch (Exception e) {
       metrics.addMeteredGlobalValue(ServerMeter.RESPONSE_SERIALIZATION_EXCEPTIONS, 1);
       LOGGER.error("Got exception while serializing response for requestId: {}, brokerId: {}",
-          instanceRequest.getRequestId(), instanceRequest.getBrokerId(), e);
+          requestId, brokerId, e);
       responseByte = null;
     }
     long serializationEndTime = System.nanoTime();
-    metrics.addPhaseTiming(instanceRequest.getQuery(), ServerQueryPhase.RESPONSE_SERIALIZATION,
+    BrokerRequest brokerRequest = instanceRequest != null ? instanceRequest.getQuery() : null;
+
+    metrics.addPhaseTiming(brokerRequest, ServerQueryPhase.RESPONSE_SERIALIZATION,
         serializationEndTime - serializationStartTime);
-    metrics.addPhaseTiming(instanceRequest.getQuery(), ServerQueryPhase.TOTAL_QUERY_TIME,
+    metrics.addPhaseTiming(brokerRequest, ServerQueryPhase.TOTAL_QUERY_TIME,
         serializationEndTime - queryStartTime);
     return responseByte;
   }
