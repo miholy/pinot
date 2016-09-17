@@ -56,7 +56,7 @@ public class ScheduledRequestHandler implements NettyServer.RequestHandler {
     final long queryStartTime = System.nanoTime();
     serverMetrics.addMeteredGlobalValue(ServerMeter.QUERIES, 1);
 
-    LOGGER.info("Processing request : {}", request);
+    LOGGER.debug("Processing request : {}", request);
 
     byte[] byteArray = new byte[request.readableBytes()];
     request.readBytes(byteArray);
@@ -106,29 +106,8 @@ public class ScheduledRequestHandler implements NettyServer.RequestHandler {
       @Override
       public byte[] apply(@Nullable DataTable instanceResponse) {
         long totalNanos = System.nanoTime() - schedulerSubmitTime;
-        long serializationStartTime = System.nanoTime();
         serverMetrics.addPhaseTiming(brokerRequest, ServerQueryPhase.QUERY_PROCESSING, totalNanos);
-        if (instanceResponse == null) {
-          LOGGER.warn("Instance response is null for requestId: {}, brokerId: {}", instanceRequest.getRequestId(),
-              instanceRequest.getBrokerId());
-          return new byte[0];
-        }
-        byte[] responseBytes;
-        try {
-          responseBytes = instanceResponse.toBytes();
-        } catch (Exception e) {
-          serverMetrics.addMeteredGlobalValue(ServerMeter.RESPONSE_SERIALIZATION_EXCEPTIONS, 1);
-          LOGGER.error("Got exception while serializing response for requestId: {}, brokerId: {}",
-              instanceRequest.getRequestId(), instanceRequest.getBrokerId(), e);
-          responseBytes = null;
-        }
-        long serializationEndTime = System.nanoTime();
-        serverMetrics.addPhaseTiming(brokerRequest, ServerQueryPhase.RESPONSE_SERIALIZATION,
-            serializationEndTime - serializationStartTime);
-        serverMetrics.addPhaseTiming(brokerRequest, ServerQueryPhase.TOTAL_QUERY_TIME,
-            serializationEndTime - queryStartTime);
-
-        return responseBytes;
+        return serializeDataTable(instanceRequest, serverMetrics, instanceResponse, queryStartTime);
       }
     });
 
