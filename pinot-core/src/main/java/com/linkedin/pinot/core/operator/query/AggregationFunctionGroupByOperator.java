@@ -29,6 +29,9 @@ import com.linkedin.pinot.core.operator.UReplicatedProjectionOperator;
 import com.linkedin.pinot.core.query.aggregation.AggregationFunction;
 import com.linkedin.pinot.core.query.aggregation.AggregationFunctionFactory;
 import com.linkedin.pinot.core.query.aggregation.function.CountAggregationFunction;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
+import com.linkedin.pinot.core.query.transform.TransformFunction;
+import com.linkedin.pinot.core.query.transform.TransformFunctionFactory;
 
 
 /**
@@ -42,6 +45,7 @@ public abstract class AggregationFunctionGroupByOperator extends BaseOperator {
   protected final Operator _projectionOperator;
   protected final Block[] _aggregationFunctionBlocks;
   protected final Block[] _groupByBlocks;
+  protected final TransformFunction[] _groupByTransformFunctions;
   protected final boolean[] _isSingleValueGroupByColumn;
   protected final GroupBy _groupBy;
   protected final String[] _aggregationColumns;
@@ -68,9 +72,17 @@ public abstract class AggregationFunctionGroupByOperator extends BaseOperator {
               .getDataSource(aggregationColumn).nextBlock(new BlockId(0));
     }
     _groupByBlocks = new Block[_groupBy.getColumnsSize()];
+    _groupByTransformFunctions = new TransformFunction[_groupBy.getColumnsSize()];
     _isSingleValueGroupByColumn = new boolean[_groupBy.getColumnsSize()];
     for (int i = 0; i < _groupBy.getColumnsSize(); ++i) {
       String groupByColumn = _groupBy.getColumns().get(i);
+      String[] splitGroupByField = GroupByUtils.parseGroupByColumn(groupByColumn);
+      if (splitGroupByField.length == 2) {
+        _groupByTransformFunctions[i] = TransformFunctionFactory.get(splitGroupByField[0]);
+        groupByColumn = splitGroupByField[1];
+      } else {
+        _groupByTransformFunctions[i] = null;
+      }
       _groupByBlocks[i] =
           ((UReplicatedProjectionOperator) _projectionOperator).getProjectionOperator().getDataSource(groupByColumn)
               .nextBlock(new BlockId(0));

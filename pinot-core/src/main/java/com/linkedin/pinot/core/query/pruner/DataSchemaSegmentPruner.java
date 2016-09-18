@@ -24,6 +24,7 @@ import com.linkedin.pinot.common.request.FilterQuery;
 import com.linkedin.pinot.common.request.FilterQueryMap;
 import com.linkedin.pinot.common.request.SelectionSort;
 import com.linkedin.pinot.core.indexsegment.IndexSegment;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
 
 
 /**
@@ -56,7 +57,7 @@ public class DataSchemaSegmentPruner implements SegmentPruner {
       // Check groupBy columns.
       if ((brokerRequest.getGroupBy() != null) && (brokerRequest.getGroupBy().getColumns() != null)) {
         for (String columnName : brokerRequest.getGroupBy().getColumns()) {
-          if (!schema.hasColumn(columnName)) {
+          if (!schema.hasColumn(GroupByUtils.getGroupByColumn(columnName))) {
             return true;
           }
         }

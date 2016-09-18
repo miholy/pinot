@@ -38,6 +38,7 @@ import com.linkedin.pinot.core.operator.UReplicatedProjectionOperator;
 import com.linkedin.pinot.core.operator.blocks.ProjectionBlock;
 import com.linkedin.pinot.core.operator.docidsets.DocIdSetBlock;
 import com.linkedin.pinot.core.query.aggregation.groupby.GroupByConstants;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
 import com.linkedin.pinot.core.query.utils.TrieNode;
 import com.linkedin.pinot.core.segment.index.readers.Dictionary;
 import com.linkedin.pinot.core.segment.index.readers.ImmutableDictionaryReader;
@@ -85,7 +86,7 @@ public class MAggregationFunctionGroupByWithDictionaryAndTrieTreeOperator extend
     int docId = 0;
 
     for (int i = 0; i < _groupBy.getColumnsSize(); ++i) {
-      _groupByBlockValIterators[i] = block.getBlock(_groupBy.getColumns().get(i)).getBlockValueSet().iterator();
+      _groupByBlockValIterators[i] = block.getBlock(GroupByUtils.getGroupByColumn(_groupBy.getColumns().get(i))).getBlockValueSet().iterator();
     }
 
     while ((docId = blockDocIdIterator.next()) != Constants.EOF) {
@@ -195,10 +196,19 @@ public class MAggregationFunctionGroupByWithDictionaryAndTrieTreeOperator extend
 
   private String getGroupedKey() {
     final StringBuilder sb = new StringBuilder();
-    sb.append(_dictionaries[0].get(_groupKeys[0]).toString());
+    if (_groupByTransformFunctions[0] == null) {
+      sb.append(_dictionaries[0].get(_groupKeys[0]).toString());
+    } else {
+      sb.append(_groupByTransformFunctions[0].transform(_dictionaries[0].get(_groupKeys[0]).toString()));
+    }
     for (int i = 1; i < _groupKeys.length; ++i) {
-      sb.append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter.toString()
-          + _dictionaries[i].get(_groupKeys[i]).toString());
+      if (_groupByTransformFunctions[0] == null) {
+      sb.append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter)
+      .append(_dictionaries[i].get(_groupKeys[i]).toString());
+      } else {
+        sb.append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter)
+        .append(_groupByTransformFunctions[i].transform(_dictionaries[i].get(_groupKeys[i]).toString()));
+      }
     }
     return sb.toString();
   }

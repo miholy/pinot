@@ -31,6 +31,7 @@ import com.linkedin.pinot.core.common.Operator;
 import com.linkedin.pinot.core.operator.blocks.ProjectionBlock;
 import com.linkedin.pinot.core.operator.docidsets.DocIdSetBlock;
 import com.linkedin.pinot.core.query.aggregation.groupby.GroupByConstants;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
 import com.linkedin.pinot.core.segment.index.readers.Dictionary;
 
 
@@ -63,7 +64,7 @@ public class MDefaultAggregationFunctionGroupByOperator extends AggregationFunct
     int docId = 0;
 
     for (int i = 0; i < _groupBy.getColumnsSize(); ++i) {
-      _groupByBlockValIterators[i] = block.getBlock(_groupBy.getColumns().get(i)).getBlockValueSet().iterator();
+      _groupByBlockValIterators[i] = block.getBlock(GroupByUtils.getGroupByColumn(_groupBy.getColumns().get(i))).getBlockValueSet().iterator();
     }
 
     while ((docId = blockDocIdIterator.next()) != Constants.EOF) {
@@ -94,28 +95,34 @@ public class MDefaultAggregationFunctionGroupByOperator extends AggregationFunct
       }
       blockValIterator = (BlockSingleValIterator) _groupByBlockValIterators[i];
       blockValIterator.skipTo(docId);
-
+      
+      String groupKeyValue = "";
       if (_groupByBlocks[i].getMetadata().hasDictionary()) {
         int nextIntVal = blockValIterator.nextIntVal();
-        groupKey += ((_groupByBlocks[i].getMetadata().getDictionary().get(nextIntVal).toString()));
+        groupKeyValue += ((_groupByBlocks[i].getMetadata().getDictionary().get(nextIntVal).toString()));
       } else {
         switch (_groupByBlocks[i].getMetadata().getDataType()) {
           case INT:
-            groupKey += blockValIterator.nextIntVal();
+            groupKeyValue += blockValIterator.nextIntVal();
             break;
           case FLOAT:
-            groupKey += blockValIterator.nextFloatVal();
+            groupKeyValue += blockValIterator.nextFloatVal();
             break;
           case LONG:
-            groupKey += blockValIterator.nextLongVal();
+            groupKeyValue += blockValIterator.nextLongVal();
             break;
           case DOUBLE:
-            groupKey += blockValIterator.nextDoubleVal();
+            groupKeyValue += blockValIterator.nextDoubleVal();
             break;
 
           default:
             break;
         }
+      }
+      if (_groupByTransformFunctions[i] == null) {
+        groupKey += groupKeyValue;
+      } else {
+        groupKey += _groupByTransformFunctions[i].transform(groupKeyValue);
       }
     }
     return groupKey;

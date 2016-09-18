@@ -31,6 +31,7 @@ import com.linkedin.pinot.core.indexsegment.IndexSegment;
 import com.linkedin.pinot.core.operator.query.AggregationFunctionGroupByOperator;
 import com.linkedin.pinot.core.operator.query.MAggregationGroupByOperator;
 import com.linkedin.pinot.core.query.aggregation.AggregationFunctionUtils;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
 
 /**
  * AggregationGroupByOperatorPlanNode takes care of how to apply multiple aggregation
@@ -72,7 +73,10 @@ public class AggregationGroupByOperatorPlanNode implements PlanNode {
       String columns = aggregationInfo.getAggregationParams().get("column").trim();
       aggregationGroupByRelatedColumns.addAll(Arrays.asList(columns.split(",")));
     }
-    aggregationGroupByRelatedColumns.addAll(_brokerRequest.getGroupBy().getColumns());
+    List<String> groupbyFields = _brokerRequest.getGroupBy().getColumns();
+    for (String groupbyField: groupbyFields) {
+      aggregationGroupByRelatedColumns.add(GroupByUtils.getGroupByColumn(groupbyField)); 
+    }
     return aggregationGroupByRelatedColumns.toArray(new String[0]);
   }
 

@@ -21,8 +21,11 @@ import com.linkedin.pinot.core.common.Operator;
 import com.linkedin.pinot.core.indexsegment.IndexSegment;
 import com.linkedin.pinot.core.operator.MProjectionOperator;
 import com.linkedin.pinot.core.operator.aggregation.groupby.AggregationGroupByOperator;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
+
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +57,10 @@ public class AggregationGroupByPlanNode implements PlanNode {
       String columns = aggregationInfo.getAggregationParams().get("column").trim();
       aggregationGroupByRelatedColumns.addAll(Arrays.asList(columns.split(",")));
     }
-    aggregationGroupByRelatedColumns.addAll(_brokerRequest.getGroupBy().getColumns());
+    List<String> groupbyFields = _brokerRequest.getGroupBy().getColumns();
+    for (String groupbyField: groupbyFields) {
+      aggregationGroupByRelatedColumns.add(GroupByUtils.getGroupByColumn(groupbyField)); 
+    }
     return aggregationGroupByRelatedColumns.toArray(new String[aggregationGroupByRelatedColumns.size()]);
   }
 

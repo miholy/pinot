@@ -24,6 +24,9 @@ import com.linkedin.pinot.core.common.DataSource;
 import com.linkedin.pinot.core.operator.aggregation.ResultHolderFactory;
 import com.linkedin.pinot.core.plan.DocIdSetPlanNode;
 import com.linkedin.pinot.core.query.aggregation.groupby.GroupByConstants;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
+import com.linkedin.pinot.core.query.transform.TransformFunction;
+import com.linkedin.pinot.core.query.transform.TransformFunctionFactory;
 import com.linkedin.pinot.core.segment.index.readers.Dictionary;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
@@ -65,6 +68,7 @@ public class DefaultGroupKeyGenerator implements GroupKeyGenerator {
   }
 
   private final int _numGroupByColumns;
+  private final TransformFunction[] _groupByFunctions;
   private final int[] _cardinalities;
   private long _cardinalityProduct = 1L;
   private final boolean[] _isSingleValueGroupByColumn;
@@ -99,6 +103,14 @@ public class DefaultGroupKeyGenerator implements GroupKeyGenerator {
    */
   public DefaultGroupKeyGenerator(DataFetcher dataFetcher, String[] groupByColumns) {
     _numGroupByColumns = groupByColumns.length;
+    _groupByFunctions = new TransformFunction[_numGroupByColumns];
+    for (int i = 0; i < groupByColumns.length; ++i) {
+      String[] splitGroupByField = GroupByUtils.parseGroupByColumn(groupByColumns[i]);
+      if (splitGroupByField.length == 2) {
+        _groupByFunctions[i] = TransformFunctionFactory.get(splitGroupByField[0]);
+        groupByColumns[i] = splitGroupByField[1];
+      }
+    }
     _cardinalities = new int[_numGroupByColumns];
     _isSingleValueGroupByColumn = new boolean[_numGroupByColumns];
     _dictionaries = new Dictionary[_numGroupByColumns];
@@ -590,16 +602,30 @@ public class DefaultGroupKeyGenerator implements GroupKeyGenerator {
   private String groupKeyToStringGroupKey(int groupKey) {
     if (_numGroupByColumns == 1) {
       // Special case one group-by column for performance.
-      return _dictionaries[0].get(groupKey).toString();
+      if (_groupByFunctions[0] == null) {
+        return _dictionaries[0].get(groupKey).toString();
+      } else {
+        return _groupByFunctions[0].transform(_dictionaries[0].get(groupKey).toString()).toString();
+      }
     } else {
       // Decode the group key.
       int cardinality = _cardinalities[0];
-      StringBuilder builder = new StringBuilder(_dictionaries[0].get(groupKey % cardinality).toString());
+      StringBuilder builder;
+      if (_groupByFunctions[0] != null) {
+        builder = new StringBuilder(_groupByFunctions[0].transform(_dictionaries[0].get(groupKey % cardinality).toString()).toString());
+      } else {
+        builder = new StringBuilder(_dictionaries[0].get(groupKey % cardinality).toString());
+      }
       groupKey /= cardinality;
       for (int i = 1; i < _numGroupByColumns; i++) {
         builder.append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter);
         cardinality = _cardinalities[i];
-        builder.append(_dictionaries[i].get(groupKey % cardinality));
+        if (_groupByFunctions[i] != null) {
+          builder.append(_groupByFunctions[i].transform(_dictionaries[i].get(groupKey % cardinality).toString()));
+        } else {
+          builder.append(_dictionaries[i].get(groupKey % cardinality));
+          
+        }
         groupKey /= cardinality;
       }
       return builder.toString();
@@ -617,16 +643,34 @@ public class DefaultGroupKeyGenerator implements GroupKeyGenerator {
   private String rawKeyToStringGroupKey(long rawKey) {
     if (_numGroupByColumns == 1) {
       // Special case one group-by column for performance.
-      return _dictionaries[0].get((int) rawKey).toString();
+      if (_groupByFunctions[0] != null) {
+        return _groupByFunctions[0].transform(_dictionaries[0].get((int) rawKey).toString()).toString();
+      } else {
+        return _dictionaries[0].get((int) rawKey).toString();
+      }
     } else {
       // Decode the raw key.
       int cardinality = _cardinalities[0];
-      StringBuilder builder = new StringBuilder(_dictionaries[0].get((int) (rawKey % cardinality)).toString());
+      StringBuilder builder;
+      if (_groupByFunctions[0] != null) {
+        builder =
+            new StringBuilder(
+                _groupByFunctions[0].transform(
+                    _dictionaries[0].get((int) (rawKey % cardinality)).toString()).toString());
+      } else {
+        builder = new StringBuilder(_dictionaries[0].get((int) (rawKey % cardinality)).toString());
+      }
       rawKey /= cardinality;
       for (int i = 1; i < _numGroupByColumns; i++) {
         builder.append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter);
         cardinality = _cardinalities[i];
-        builder.append(_dictionaries[i].get((int) (rawKey % cardinality)));
+        if (_groupByFunctions[i] != null) {
+          builder.append(
+              _groupByFunctions[i].transform(
+                  _dictionaries[i].get((int) (rawKey % cardinality)).toString()));
+        } else {
+          builder.append(_dictionaries[i].get((int) (rawKey % cardinality)));
+        }
         rawKey /= cardinality;
       }
       return builder.toString();
@@ -643,10 +687,23 @@ public class DefaultGroupKeyGenerator implements GroupKeyGenerator {
    */
   private String rawKeyToStringGroupKey(IntArrayList rawKey) {
     int[] rawKeyArray = rawKey.elements();
-    StringBuilder builder = new StringBuilder(_dictionaries[0].get(rawKeyArray[0]).toString());
+    StringBuilder builder;
+    if (_groupByFunctions[0] != null) {
+      builder = new StringBuilder(
+          _groupByFunctions[0].transform(
+              _dictionaries[0].get(rawKeyArray[0]).toString()).toString());
+    } else {
+      builder = new StringBuilder(_dictionaries[0].get(rawKeyArray[0]).toString());
+    }
     for (int i = 1; i < _numGroupByColumns; i++) {
       builder.append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter);
-      builder.append(_dictionaries[i].get(rawKeyArray[i]).toString());
+      if (_groupByFunctions[i] != null) {
+        builder.append(
+            _groupByFunctions[i].transform(
+                _dictionaries[i].get(rawKeyArray[i]).toString()));
+      } else {
+        builder.append(_dictionaries[i].get(rawKeyArray[i]).toString());
+      }
     }
     return builder.toString();
   }

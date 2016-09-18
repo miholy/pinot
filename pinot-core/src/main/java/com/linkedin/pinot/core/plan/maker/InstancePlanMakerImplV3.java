@@ -27,6 +27,7 @@ import com.linkedin.pinot.core.indexsegment.IndexSegment;
 import com.linkedin.pinot.core.plan.Plan;
 import com.linkedin.pinot.core.plan.PlanNode;
 import com.linkedin.pinot.core.query.aggregation.groupby.BitHacks;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
 import com.linkedin.pinot.core.segment.index.IndexSegmentImpl;
 
 
@@ -52,7 +53,7 @@ public class InstancePlanMakerImplV3 implements PlanMaker {
     final IndexSegmentImpl columnarSegment = (IndexSegmentImpl) indexSegment;
     int totalBitSet = 0;
     for (final String column : brokerRequest.getGroupBy().getColumns()) {
-      totalBitSet += BitHacks.findLogBase2(columnarSegment.getDictionaryFor(column).length()) + 1;
+      totalBitSet += BitHacks.findLogBase2(columnarSegment.getDictionaryFor(GroupByUtils.getGroupByColumn(column)).length()) + 1;
     }
     if (totalBitSet > 64) {
       return false;

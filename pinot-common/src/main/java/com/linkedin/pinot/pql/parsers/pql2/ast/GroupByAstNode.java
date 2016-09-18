@@ -19,7 +19,6 @@ import com.linkedin.pinot.common.request.BrokerRequest;
 import com.linkedin.pinot.common.request.GroupBy;
 import com.linkedin.pinot.pql.parsers.Pql2CompilationException;
 
-
 /**
  * AST node for GROUP BY clauses.
  */
@@ -31,6 +30,10 @@ public class GroupByAstNode extends BaseAstNode {
       if (astNode instanceof IdentifierAstNode) {
         IdentifierAstNode node = (IdentifierAstNode) astNode;
         groupBy.addToColumns(node.getName());
+      } else if (astNode instanceof FunctionCallAstNode) {
+        FunctionCallAstNode node = (FunctionCallAstNode) astNode;
+        String functionString = node.getName() + "$$$" + ((IdentifierAstNode) node.getChildren().get(0)).getName();
+        groupBy.addToColumns(functionString);
       } else {
         throw new Pql2CompilationException("Child of group by clause is not an identifier.");
       }

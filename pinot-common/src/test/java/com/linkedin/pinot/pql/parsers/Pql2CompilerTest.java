@@ -56,6 +56,12 @@ public class Pql2CompilerTest {
     testTopZeroFor(compiler, "select count(*) from someTable where c = 5 group by X top -1", TopAstNode.DEFAULT_TOP_N, true);
   }
 
+  @Test
+  public void testGroupByUdfs() throws Exception {
+    Pql2Compiler compiler  = new Pql2Compiler();
+    testTopZeroFor(compiler, "select count(*) from someTable where c = 5 group by convert_time(X) top 1", 1, true);
+  }
+
   private void testTopZeroFor(Pql2Compiler compiler, String s, final int expectedTopN, boolean parseException) throws Exception {
     BrokerRequest req;
     try {

@@ -40,6 +40,7 @@ import com.linkedin.pinot.core.operator.blocks.ProjectionBlock;
 import com.linkedin.pinot.core.operator.docidsets.DocIdSetBlock;
 import com.linkedin.pinot.core.query.aggregation.groupby.BitHacks;
 import com.linkedin.pinot.core.query.aggregation.groupby.GroupByConstants;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
 import com.linkedin.pinot.core.segment.index.readers.Dictionary;
 import com.linkedin.pinot.core.segment.index.readers.ImmutableDictionaryReader;
 
@@ -99,7 +100,7 @@ public class MAggregationFunctionGroupByWithDictionaryOperator extends Aggregati
     int docId = 0;
 
     for (int i = 0; i < _groupBy.getColumnsSize(); ++i) {
-      _groupByBlockValIterators[i] = block.getBlock(_groupBy.getColumns().get(i)).getBlockValueSet().iterator();
+      _groupByBlockValIterators[i] = block.getBlock(GroupByUtils.getGroupByColumn(_groupBy.getColumns().get(i))).getBlockValueSet().iterator();
     }
 
     if (!_isGroupByColumnsContainMultiValueColumn) {
@@ -229,10 +230,19 @@ public class MAggregationFunctionGroupByWithDictionaryOperator extends Aggregati
     }
 
     final StringBuilder builder = new StringBuilder();
-    for (int j = 0; j < (_stringArray.length - 1); j++) {
-      builder.append(_stringArray[j]).append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter.toString());
+    int arraryLenghtMinusOne = _stringArray.length - 1;
+    for (int j = 0; j < arraryLenghtMinusOne; j++) {
+      if (_groupByTransformFunctions[j] == null) {
+        builder.append(_stringArray[j]).append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter.toString());
+      } else {
+        builder.append(_groupByTransformFunctions[j].transform(_stringArray[j])).append(GroupByConstants.GroupByDelimiter.groupByMultiDelimeter.toString());
+      }
     }
-    builder.append(_stringArray[_stringArray.length - 1]);
+    if (_groupByTransformFunctions[arraryLenghtMinusOne] == null) {
+      builder.append(_stringArray[arraryLenghtMinusOne]);
+    } else {
+      builder.append(_groupByTransformFunctions[arraryLenghtMinusOne].transform(_stringArray[arraryLenghtMinusOne]));
+    }
     return builder.toString();
   }
 }

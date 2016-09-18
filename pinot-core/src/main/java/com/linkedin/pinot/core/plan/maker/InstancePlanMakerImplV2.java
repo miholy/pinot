@@ -30,6 +30,7 @@ import com.linkedin.pinot.core.plan.Plan;
 import com.linkedin.pinot.core.plan.PlanNode;
 import com.linkedin.pinot.core.plan.SelectionPlanNode;
 import com.linkedin.pinot.core.query.aggregation.groupby.BitHacks;
+import com.linkedin.pinot.core.query.aggregation.groupby.GroupByUtils;
 import com.linkedin.pinot.core.query.config.QueryExecutorConfig;
 import com.linkedin.pinot.core.segment.index.readers.Dictionary;
 import java.util.List;
@@ -127,7 +128,7 @@ public class InstancePlanMakerImplV2 implements PlanMaker {
   private boolean isGroupKeyFitForLong(IndexSegment indexSegment, BrokerRequest brokerRequest) {
     int totalBitSet = 0;
     for (final String column : brokerRequest.getGroupBy().getColumns()) {
-      Dictionary dictionary = indexSegment.getDataSource(column).getDictionary();
+      Dictionary dictionary = indexSegment.getDataSource(GroupByUtils.getGroupByColumn(column)).getDictionary();
       totalBitSet += BitHacks.findLogBase2(dictionary.length()) + 1;
     }
     if (totalBitSet > 64) {

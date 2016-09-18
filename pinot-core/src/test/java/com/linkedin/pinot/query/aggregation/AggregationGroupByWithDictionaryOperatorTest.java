@@ -78,7 +78,6 @@ import com.linkedin.pinot.core.util.DoubleComparisonUtil;
 import com.linkedin.pinot.segments.v1.creator.SegmentTestUtils;
 import com.linkedin.pinot.util.TestUtils;
 
-
 public class AggregationGroupByWithDictionaryOperatorTest {
 
   protected static Logger LOGGER = LoggerFactory.getLogger(AggregationGroupByWithDictionaryOperatorTest.class);
@@ -143,7 +142,8 @@ public class AggregationGroupByWithDictionaryOperatorTest {
       driver.build();
 
       LOGGER.debug("built at : {}", segmentDir.getAbsolutePath());
-      _indexSegmentList.add(new OfflineSegmentDataManager(ColumnarSegmentLoader.load(new File(segmentDir, driver.getSegmentName()), ReadMode.heap)));
+      _indexSegmentList
+          .add(new OfflineSegmentDataManager(ColumnarSegmentLoader.load(new File(segmentDir, driver.getSegmentName()), ReadMode.heap)));
     }
   }
 
@@ -399,6 +399,40 @@ public class AggregationGroupByWithDictionaryOperatorTest {
   }
 
   @Test
+  public void testInnerSegmentPlanMakerForAggregationGroupByOperatorWithGroupByFuncWithFilter() throws Exception {
+    final BrokerRequest brokerRequest = getAggregationGroupByWithFuncWithFilterBrokerRequest();
+    final PlanMaker instancePlanMaker = new InstancePlanMakerImplV2();
+    final PlanNode rootPlanNode = instancePlanMaker.makeInnerSegmentPlan(_indexSegment, brokerRequest);
+    rootPlanNode.showTree("");
+    final IntermediateResultsBlock resultBlock = (IntermediateResultsBlock) rootPlanNode.run().nextBlock();
+    LOGGER.debug("RunningTime : {}", resultBlock.getTimeUsedMs());
+    LOGGER.debug("NumDocsScanned : {}", resultBlock.getNumDocsScanned());
+    LOGGER.debug("TotalDocs : {}", resultBlock.getTotalRawDocs());
+    Assert.assertEquals(resultBlock.getNumDocsScanned(), 582);
+    Assert.assertEquals(resultBlock.getTotalRawDocs(), 10001);
+
+    final AggregationGroupByOperatorService aggregationGroupByOperatorService =
+        new AggregationGroupByOperatorService(_aggregationInfos, brokerRequest.getGroupBy());
+
+    final Map<ServerInstance, DataTable> instanceResponseMap = new HashMap<ServerInstance, DataTable>();
+    instanceResponseMap.put(new ServerInstance("localhost:0000"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:1111"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:2222"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:3333"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:4444"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:5555"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:6666"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:7777"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:8888"), resultBlock.getAggregationGroupByResultDataTable());
+    instanceResponseMap.put(new ServerInstance("localhost:9999"), resultBlock.getAggregationGroupByResultDataTable());
+    final List<Map<String, Serializable>> reducedResults =
+        aggregationGroupByOperatorService.reduceGroupByOperators(instanceResponseMap);
+    final List<JSONObject> jsonResult = aggregationGroupByOperatorService.renderGroupByOperators(reducedResults);
+    LOGGER.debug("Result: {}", jsonResult);
+    System.out.println("Result: "+ jsonResult);
+  }
+
+  @Test
   public void testInterSegmentAggregationGroupByPlanMakerAndRun() throws Exception {
     final int numSegments = 20;
     setupSegmentList(numSegments);
@@ -456,7 +490,7 @@ public class AggregationGroupByWithDictionaryOperatorTest {
             Double.valueOf(actualGroupByResult.getValue().toString())));
         if ((i < 14 && expectedAggregationResult[i] == expectedAggregationResult[i + 1]) || (i > 0
             && expectedAggregationResult[i] == expectedAggregationResult[i - 1])) {
-          //do nothing, as we have multiple groups within same value.
+          // do nothing, as we have multiple groups within same value.
         } else {
 
           JSONArray actualGroup = new JSONArray(actualGroupByResult.getGroup());
@@ -516,51 +550,101 @@ public class AggregationGroupByWithDictionaryOperatorTest {
   }
 
   private static double[] getCountResult(int numSegments) {
-    return new double[] { 1450 * numSegments, 620 * numSegments, 517 * numSegments, 422 * numSegments, 365 * numSegments, 340 * numSegments, 321 * numSegments, 296 * numSegments, 286 * numSegments, 273 * numSegments, 271 * numSegments, 268 * numSegments, 234 * numSegments, 210 * numSegments, 208 * numSegments };
+    return new double[] {
+        1450 * numSegments, 620 * numSegments, 517 * numSegments, 422 * numSegments, 365 * numSegments, 340 * numSegments,
+        321 * numSegments, 296 * numSegments, 286 * numSegments, 273 * numSegments, 271 * numSegments, 268 * numSegments, 234 * numSegments,
+        210 * numSegments, 208 * numSegments
+    };
   }
 
   private static String[] getCountGroupResult() {
-    return new String[] { "[\"i\",\"\"]", "[\"D\",\"\"]", "[\"i\",\"CqC\"]", "[\"i\",\"QMl\"]", "[\"i\",\"bVnY\"]", "[\"i\",\"iV\"]", "[\"i\",\"zZe\"]", "[\"i\",\"xDLG\"]", "[\"i\",\"VsKz\"]", "[\"i\",\"mNh\"]", "[\"i\",\"ez\"]", "[\"i\",\"rNcu\"]", "[\"i\",\"EXYv\"]", "[\"i\",\"gpyD\"]", "[\"i\",\"yhq\"]" };
+    return new String[] {
+        "[\"i\",\"\"]", "[\"D\",\"\"]", "[\"i\",\"CqC\"]", "[\"i\",\"QMl\"]", "[\"i\",\"bVnY\"]", "[\"i\",\"iV\"]", "[\"i\",\"zZe\"]",
+        "[\"i\",\"xDLG\"]", "[\"i\",\"VsKz\"]", "[\"i\",\"mNh\"]", "[\"i\",\"ez\"]", "[\"i\",\"rNcu\"]", "[\"i\",\"EXYv\"]",
+        "[\"i\",\"gpyD\"]", "[\"i\",\"yhq\"]"
+    };
   }
 
   private static double[] getSumResult(int numSegments) {
-    return new double[] { 194232989695956150000000.00000, 82874083725452570000000.00000, 69188102307666020000000.00000, 57011594945268800000000.00000, 49669069292549060000000.00000, 45658425435674350000000.00000, 42733154649942075000000.00000, 39374565823833550000000.00000, 38376043393352970000000.00000, 36944406922141550000000.00000, 36562112604244086000000.00000, 36141768458849143000000.00000, 31259578136918286000000.00000, 27679187240218786000000.00000, 27524721980723073000000.00000 };
+    return new double[] {
+        194232989695956150000000.00000, 82874083725452570000000.00000, 69188102307666020000000.00000, 57011594945268800000000.00000,
+        49669069292549060000000.00000, 45658425435674350000000.00000, 42733154649942075000000.00000, 39374565823833550000000.00000,
+        38376043393352970000000.00000, 36944406922141550000000.00000, 36562112604244086000000.00000, 36141768458849143000000.00000,
+        31259578136918286000000.00000, 27679187240218786000000.00000, 27524721980723073000000.00000
+    };
   }
 
   private static String[] getSumGroupResult() {
-    return new String[] { "[\"i\",\"\"]", "[\"D\",\"\"]", "[\"i\",\"CqC\"]", "[\"i\",\"QMl\"]", "[\"i\",\"bVnY\"]", "[\"i\",\"iV\"]", "[\"i\",\"zZe\"]", "[\"i\",\"xDLG\"]", "[\"i\",\"VsKz\"]", "[\"i\",\"mNh\"]", "[\"i\",\"ez\"]", "[\"i\",\"rNcu\"]", "[\"i\",\"EXYv\"]", "[\"i\",\"yhq\"]", "[\"i\",\"gpyD\"]" };
+    return new String[] {
+        "[\"i\",\"\"]", "[\"D\",\"\"]", "[\"i\",\"CqC\"]", "[\"i\",\"QMl\"]", "[\"i\",\"bVnY\"]", "[\"i\",\"iV\"]", "[\"i\",\"zZe\"]",
+        "[\"i\",\"xDLG\"]", "[\"i\",\"VsKz\"]", "[\"i\",\"mNh\"]", "[\"i\",\"ez\"]", "[\"i\",\"rNcu\"]", "[\"i\",\"EXYv\"]",
+        "[\"i\",\"yhq\"]", "[\"i\",\"gpyD\"]"
+    };
   }
 
   private static double[] getMaxResult() {
-    return new double[] { 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000 };
+    return new double[] {
+        8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000,
+        8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000,
+        8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000,
+        8637957270245934100.00000, 8637957270245934100.00000, 8637957270245934100.00000
+    };
   }
 
   private static String[] getMaxGroupResult() {
-    return new String[] { "[\"i\",\"yH\"]", "[\"U\",\"mNh\"]", "[\"i\",\"OYMU\"]", "[\"D\",\"opm\"]", "[\"i\",\"ZQa\"]", "[\"D\",\"Gac\"]", "[\"i\",\"gpyD\"]", "[\"D\",\"Pcb\"]", "[\"U\",\"LjAS\"]", "[\"i\",\"mNh\"]", "[\"U\",\"bVnY\"]", "[\"D\",\"aN\"]", "[\"D\",\"iV\"]", "[\"U\",\"Vj\"]", "[\"D\",\"KsKZ\"]" };
+    return new String[] {
+        "[\"i\",\"yH\"]", "[\"U\",\"mNh\"]", "[\"i\",\"OYMU\"]", "[\"D\",\"opm\"]", "[\"i\",\"ZQa\"]", "[\"D\",\"Gac\"]",
+        "[\"i\",\"gpyD\"]", "[\"D\",\"Pcb\"]", "[\"U\",\"LjAS\"]", "[\"i\",\"mNh\"]", "[\"U\",\"bVnY\"]", "[\"D\",\"aN\"]",
+        "[\"D\",\"iV\"]", "[\"U\",\"Vj\"]", "[\"D\",\"KsKZ\"]"
+    };
   }
 
   private static double[] getMinResult() {
-    return new double[] { 614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 1048718684474966140.00000, 1048718684474966140.00000, 1048718684474966140.00000, 3703896352903212000.00000, 3703896352903212000.00000, 3703896352903212000.00000, 3703896352903212000.00000 };
+    return new double[] {
+        614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000,
+        614819680033322500.00000, 614819680033322500.00000, 614819680033322500.00000, 1048718684474966140.00000, 1048718684474966140.00000,
+        1048718684474966140.00000, 3703896352903212000.00000, 3703896352903212000.00000, 3703896352903212000.00000,
+        3703896352903212000.00000
+    };
   }
 
   private static String[] getMinGroupResult() {
-    return new String[] { "[\"D\",\"Gac\"]", "[\"i\",\"mNh\"]", "[\"i\",\"VsKz\"]", "[\"D\",\"\"]", "[\"i\",\"yhq\"]", "[\"D\",\"CqC\"]", "[\"U\",\"\"]", "[\"i\",\"jb\"]", "[\"D\",\"bVnY\"]", "[\"i\",\"\"]", "[\"i\",\"QMl\"]", "[\"i\",\"Pcb\"]", "[\"i\",\"EXYv\"]", "[\"i\",\"bVnY\"]", "[\"i\",\"zZe\"]" };
+    return new String[] {
+        "[\"D\",\"Gac\"]", "[\"i\",\"mNh\"]", "[\"i\",\"VsKz\"]", "[\"D\",\"\"]", "[\"i\",\"yhq\"]", "[\"D\",\"CqC\"]", "[\"U\",\"\"]",
+        "[\"i\",\"jb\"]", "[\"D\",\"bVnY\"]", "[\"i\",\"\"]", "[\"i\",\"QMl\"]", "[\"i\",\"Pcb\"]", "[\"i\",\"EXYv\"]", "[\"i\",\"bVnY\"]",
+        "[\"i\",\"zZe\"]"
+    };
   }
 
   private static double[] getAvgResult() {
-    return new double[] { 7768390271561314300.00000, 7215319188094814200.00000, 7105513810764889100.00000, 7094438547504759800.00000, 7004199482369404900.00000, 6991851055242935300.00000, 6987779156890090500.00000, 6973627660796153900.00000, 6970558938737374200.00000, 6964262042984379400.00000, 6912897688920598500.00000, 6906152143309600800.00000, 6888134675143909400.00000, 6880505863259489300.00000, 6878447250928267300.00000 };
+    return new double[] {
+        7768390271561314300.00000, 7215319188094814200.00000, 7105513810764889100.00000, 7094438547504759800.00000,
+        7004199482369404900.00000, 6991851055242935300.00000, 6987779156890090500.00000, 6973627660796153900.00000,
+        6970558938737374200.00000, 6964262042984379400.00000, 6912897688920598500.00000, 6906152143309600800.00000,
+        6888134675143909400.00000, 6880505863259489300.00000, 6878447250928267300.00000
+    };
   }
 
   private static String[] getAvgGroupResult() {
-    return new String[] { "[\"U\",\"yhq\"]", "[\"U\",\"mNh\"]", "[\"U\",\"Vj\"]", "[\"U\",\"OYMU\"]", "[\"U\",\"zZe\"]", "[\"U\",\"jb\"]", "[\"D\",\"aN\"]", "[\"U\",\"bVnY\"]", "[\"U\",\"iV\"]", "[\"i\",\"LjAS\"]", "[\"D\",\"xDLG\"]", "[\"U\",\"EXYv\"]", "[\"D\",\"iV\"]", "[\"D\",\"Gac\"]", "[\"D\",\"QMl\"]" };
+    return new String[] {
+        "[\"U\",\"yhq\"]", "[\"U\",\"mNh\"]", "[\"U\",\"Vj\"]", "[\"U\",\"OYMU\"]", "[\"U\",\"zZe\"]", "[\"U\",\"jb\"]", "[\"D\",\"aN\"]",
+        "[\"U\",\"bVnY\"]", "[\"U\",\"iV\"]", "[\"i\",\"LjAS\"]", "[\"D\",\"xDLG\"]", "[\"U\",\"EXYv\"]", "[\"D\",\"iV\"]",
+        "[\"D\",\"Gac\"]", "[\"D\",\"QMl\"]"
+    };
   }
 
   private static double[] getDistinctCountResult() {
-    return new double[] { 128, 109, 100, 99, 84, 81, 77, 76, 75, 74, 71, 67, 67, 62, 57 };
+    return new double[] {
+        128, 109, 100, 99, 84, 81, 77, 76, 75, 74, 71, 67, 67, 62, 57
+    };
   }
 
   private static String[] getDistinctCountGroupResult() {
-    return new String[] { "[\"i\",\"\"]", "[\"D\",\"\"]", "[\"i\",\"zZe\"]", "[\"i\",\"QMl\"]", "[\"i\",\"bVnY\"]", "[\"i\",\"iV\"]", "[\"i\",\"VsKz\"]", "[\"i\",\"CqC\"]", "[\"i\",\"EXYv\"]", "[\"i\",\"xDLG\"]", "[\"i\",\"yhq\"]", "[\"U\",\"\"]", "[\"D\",\"EXYv\"]", "[\"D\",\"LjAS\"]", "[\"i\",\"rNcu\"]" };
+    return new String[] {
+        "[\"i\",\"\"]", "[\"D\",\"\"]", "[\"i\",\"zZe\"]", "[\"i\",\"QMl\"]", "[\"i\",\"bVnY\"]", "[\"i\",\"iV\"]", "[\"i\",\"VsKz\"]",
+        "[\"i\",\"CqC\"]", "[\"i\",\"EXYv\"]", "[\"i\",\"xDLG\"]", "[\"i\",\"yhq\"]", "[\"U\",\"\"]", "[\"D\",\"EXYv\"]",
+        "[\"D\",\"LjAS\"]", "[\"i\",\"rNcu\"]"
+    };
   }
 
   private static BrokerRequest getAggregationGroupByNoFilterBrokerRequest() {
@@ -650,6 +734,16 @@ public class AggregationGroupByWithDictionaryOperatorTest {
     return groupBy;
   }
 
+  private static GroupBy getGroupByWithFunc() {
+    final GroupBy groupBy = new GroupBy();
+    final List<String> columns = new ArrayList<String>();
+    columns.add("to_lower$$$column11");
+    columns.add("to_lower$$$column10");
+    groupBy.setColumns(columns);
+    groupBy.setTopN(15);
+    return groupBy;
+  }
+
   private static BrokerRequest getAggregationGroupByWithFilterBrokerRequest() {
     final BrokerRequest brokerRequest = new BrokerRequest();
     final List<AggregationInfo> aggregationsInfo = new ArrayList<AggregationInfo>();
@@ -661,6 +755,21 @@ public class AggregationGroupByWithDictionaryOperatorTest {
     aggregationsInfo.add(getDistinctCountAggregationInfo("column12"));
     brokerRequest.setAggregationsInfo(aggregationsInfo);
     brokerRequest.setGroupBy(getGroupBy());
+    setFilterQuery(brokerRequest);
+    return brokerRequest;
+  }
+
+  private static BrokerRequest getAggregationGroupByWithFuncWithFilterBrokerRequest() {
+    final BrokerRequest brokerRequest = new BrokerRequest();
+    final List<AggregationInfo> aggregationsInfo = new ArrayList<AggregationInfo>();
+    aggregationsInfo.add(getCountAggregationInfo());
+    aggregationsInfo.add(getSumAggregationInfo());
+    aggregationsInfo.add(getMaxAggregationInfo());
+    aggregationsInfo.add(getMinAggregationInfo());
+    aggregationsInfo.add(getAvgAggregationInfo());
+    aggregationsInfo.add(getDistinctCountAggregationInfo("column12"));
+    brokerRequest.setAggregationsInfo(aggregationsInfo);
+    brokerRequest.setGroupBy(getGroupByWithFunc());
     setFilterQuery(brokerRequest);
     return brokerRequest;
   }

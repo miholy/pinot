@@ -70,7 +70,6 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 
 import static org.testng.Assert.assertEquals;
 
-
 public class PlanMakerTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PlanMakerTest.class);
 
@@ -214,7 +213,7 @@ public class PlanMakerTest {
     PlanMaker instancePlanMaker = new InstancePlanMakerImplV2();
     PlanNode rootPlanNode = instancePlanMaker.makeInnerSegmentPlan(_indexSegment, brokerRequest);
     rootPlanNode.showTree("");
-    //USelectionOperator operator = (USelectionOperator) rootPlanNode.run();
+    // USelectionOperator operator = (USelectionOperator) rootPlanNode.run();
     MSelectionOnlyOperator operator = (MSelectionOnlyOperator) rootPlanNode.run();
     IntermediateResultsBlock resultBlock = (IntermediateResultsBlock) operator.nextBlock();
     ArrayList<Serializable[]> retList = (ArrayList<Serializable[]>) resultBlock.getSelectionResult();
@@ -431,6 +430,7 @@ public class PlanMakerTest {
     DataTable instanceResponse = globalPlan.getInstanceResponse();
 
     LOGGER.debug(instanceResponse.toString());
+    System.out.println(instanceResponse.toString());
     List<DataTable> instanceResponseList = new ArrayList<DataTable>();
     instanceResponseList.add(instanceResponse);
 
@@ -442,10 +442,12 @@ public class PlanMakerTest {
       if (keyString.equals("0")) {
         Serializable resultList = singleGroupByResult.get(keyString);
         LOGGER.debug("grouped key: {}, value: {}", keyString, resultList);
+        System.out.println("grouped key: "+ keyString +", value: "+ resultList);
         assertEquals(400020, ((Number) resultList).longValue());
       } else {
         Serializable resultList = singleGroupByResult.get(keyString);
         LOGGER.debug("grouped key: {}, value: {}", keyString, resultList);
+        System.out.println("grouped key: "+ keyString +", value: "+ resultList);
         assertEquals(400000, ((Number) resultList).longValue());
       }
     }
@@ -812,7 +814,7 @@ public class PlanMakerTest {
   private static GroupBy getGroupBy() {
     GroupBy groupBy = new GroupBy();
     List<String> columns = new ArrayList<String>();
-    columns.add("dim0");
+    columns.add("to_lower$$$dim0");
     groupBy.setColumns(columns);
     groupBy.setTopN(15);
     return groupBy;
